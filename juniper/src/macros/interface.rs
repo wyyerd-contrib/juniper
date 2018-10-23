@@ -90,6 +90,57 @@ macro_rules! graphql_interface {
     ( @as_item, $i:item) => { $i };
     ( @as_expr, $e:expr) => { $e };
 
+    // #[doc = <description>]
+    // #[deprecated(note = <reason>)]
+    // field <name>(...) -> <type> { ... }
+    (
+        @ gather_meta,
+        ($reg:expr, $acc:expr, $info:expr, $descr:expr),
+        $( #[doc = $desc:tt] )*
+        #[deprecated(note = $reason:tt)]
+        field
+            $name:ident
+            $args:tt -> $t:ty
+            $body:block
+            $( $rest:tt )*
+    ) => {
+        $acc.push(__graphql__args!(
+            @apply_args,
+            $reg,
+            $reg.field_convert::<$t, _, Self::Context>(
+                &$crate::to_camel_case(stringify!($name)), $info)
+                $(.description_line($desc))*
+                .deprecated($reason),
+            $info,
+            $args));
+
+        graphql_interface!(@ gather_meta, ($reg, $acc, $info, $descr), $( $rest )*);
+    };
+
+    // #[doc = <description>]
+    // field <name>(...) -> <type> { ... }
+    (
+        @ gather_meta,
+        ($reg:expr, $acc:expr, $info:expr, $descr:expr),
+        $( #[doc = $desc:tt] )*
+        field
+            $name:ident
+            $args:tt -> $t:ty
+            $body:block
+            $( $rest:tt )*
+    ) => {
+        $acc.push(__graphql__args!(
+            @apply_args,
+            $reg,
+            $reg.field_convert::<$t, _, Self::Context>(
+                &$crate::to_camel_case(stringify!($name)), $info)
+                $(.description_line($desc))*,
+            $info,
+            $args));
+
+        graphql_interface!(@ gather_meta, ($reg, $acc, $info, $descr), $( $rest )*);
+    };
+
     // field deprecated <reason> <name>(...) -> <type> as <description> { ... }
     (
         @ gather_meta,

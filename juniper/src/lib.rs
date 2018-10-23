@@ -89,6 +89,7 @@ Juniper has not reached 1.0 yet, thus some API instability should be expected.
 
 */
 #![warn(missing_docs)]
+#![recursion_limit="96"]
 
 extern crate serde;
 #[macro_use]
@@ -99,7 +100,6 @@ extern crate serde_json;
 
 extern crate fnv;
 
-#[cfg_attr(test, macro_use)]
 extern crate indexmap;
 
 extern crate bigdecimal;
