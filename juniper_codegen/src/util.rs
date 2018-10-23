@@ -1,5 +1,37 @@
 use regex::Regex;
-use syn::{Attribute, Lit, Meta, MetaNameValue, NestedMeta};
+use syn::{Attribute, Lit, Meta, MetaList, MetaNameValue, NestedMeta};
+
+pub fn get_deprecated_note(attrs: &Vec<Attribute>) -> Option<String> {
+    if let Some(item) = get_deprecated_attr(attrs) {
+        for meta in item.nested {
+            match meta {
+                NestedMeta::Meta(Meta::NameValue(nv)) => {
+                    match nv.lit {
+                        Lit::Str(ref strlit) => {
+                            return Some(strlit.value().to_string());
+                        }
+                        _ => panic!("deprecated attribute note value only has string literal"),
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+// Gets deprecated attribute; matches `#[deprecated(...)]`, but ignores empty `#[deprecated]`
+fn get_deprecated_attr(attrs: &Vec<Attribute>) -> Option<MetaList> {
+    for attr in attrs {
+        match attr.interpret_meta() {
+            Some(Meta::List(ref list)) if list.ident == "deprecated" => {
+                return Some(list.clone());
+            }
+            _ => {}
+        }
+    }
+    None
+}
 
 // Gets doc comment.
 pub fn get_doc_comment(attrs: &Vec<Attribute>) -> Option<String> {
@@ -59,7 +91,7 @@ fn get_doc_attr(attrs: &Vec<Attribute>) -> Option<Vec<MetaNameValue>> {
 }
 
 // Get the nested items of a a #[graphql(...)] attribute.
-pub fn get_graphl_attr(attrs: &Vec<Attribute>) -> Option<Vec<NestedMeta>> {
+pub fn get_graphql_attr(attrs: &Vec<Attribute>) -> Option<Vec<NestedMeta>> {
     for attr in attrs {
         match attr.interpret_meta() {
             Some(Meta::List(ref list)) if list.ident == "graphql" => {
