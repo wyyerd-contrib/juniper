@@ -36,7 +36,7 @@ impl ObjAttrs {
                     continue;
                 }
                 panic!(format!(
-                    "Unknown attribute for #[derive(GraphQLObject)]: {:?}",
+                    "Unknown struct attribute for #[derive(GraphQLObject)]: {:?}",
                     item
                 ));
             }
@@ -49,7 +49,7 @@ impl ObjAttrs {
 struct ObjFieldAttrs {
     name: Option<String>,
     description: Option<String>,
-    deprecation: Option<String>,
+    deprecation: Option<DeprecationAttr>,
 }
 
 impl ObjFieldAttrs {
@@ -59,8 +59,8 @@ impl ObjFieldAttrs {
         // Check doc comments for description.
         res.description = get_doc_comment(&variant.attrs);
 
-        // Check rust "deprecated" for deprecation.
-        res.deprecation = get_deprecated_note(&variant.attrs);
+        // Check builtin deprecated attribute for deprecation.
+        res.deprecation = get_deprecated(&variant.attrs);
 
         // Check attributes.
         if let Some(items) = get_graphql_attr(&variant.attrs) {
@@ -81,7 +81,15 @@ impl ObjFieldAttrs {
                     continue;
                 }
                 if let Some(val) = keyed_item_value(&item, "deprecation", true) {
-                    res.deprecation = Some(val);
+                    res.deprecation = Some(DeprecationAttr { reason: Some(val) });
+                    continue;
+                }
+                if let Some(val) = keyed_item_value(&item, "deprecated", false) {
+                    res.deprecation = Some(DeprecationAttr { reason: Some(val) });
+                    continue;
+                }
+                if bare_item(&item, "deprecated") {
+                    res.deprecation = Some(DeprecationAttr { reason: None });
                     continue;
                 }
                 panic!(format!(
@@ -142,7 +150,8 @@ pub fn impl_object(ast: &syn::DeriveInput) -> Tokens {
         };
 
         let build_deprecation = match field_attrs.deprecation {
-            Some(s) => quote!{ field.deprecated(#s)  },
+            Some(DeprecationAttr { reason: Some(s) }) => quote!{ field.deprecated(Some(#s)) },
+            Some(DeprecationAttr { reason: None }) => quote!{ field.deprecated(None) },
             None => quote!{ field },
         };
 

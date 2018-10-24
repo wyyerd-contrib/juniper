@@ -249,7 +249,7 @@ macro_rules! graphql_object {
         @gather_object_meta,
         $reg:expr, $acc:expr, $info:expr, $descr:expr, $ifaces:expr,
         $( #[doc = $desc:tt] )*
-        #[deprecated(note = $reason:tt)]
+        #[deprecated($(note = $reason:tt),*)]
         field
             $name:ident
             $args:tt -> $t:ty
@@ -262,7 +262,7 @@ macro_rules! graphql_object {
             $reg.field_convert::<$t, _, Self::Context>(
                 &$crate::to_camel_case(stringify!($name)), $info)
                 $(.push_docstring($desc))*
-                .deprecated($reason),
+                .deprecated(None$(.unwrap_or(Some($reason)))*),
             $info,
             $args));
 
@@ -311,7 +311,7 @@ macro_rules! graphql_object {
             $reg.field_convert::<$t, _, Self::Context>(
                 &$crate::to_camel_case(stringify!($name)), $info)
                 .description($desc)
-                .deprecated($reason),
+                .deprecated(Some($reason)),
             $info,
             $args));
 
@@ -329,7 +329,7 @@ macro_rules! graphql_object {
             $reg,
             $reg.field_convert::<$t, _, Self::Context>(
                 &$crate::to_camel_case(stringify!($name)), $info)
-                .deprecated($reason),
+                .deprecated(Some($reason)),
             $info,
             $args));
 

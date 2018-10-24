@@ -6,6 +6,33 @@ use std::fmt;
 use ast::{FromInputValue, InputValue, Type};
 use types::base::TypeKind;
 
+/// Whether an item is deprecated, with context.
+#[derive(Debug, PartialEq, Hash, Clone)]
+pub enum DeprecationStatus {
+    /// The field/variant is not deprecated.
+    Current,
+    /// The field/variant is deprecated, with an optional reason
+    Deprecated(Option<String>),
+}
+
+impl DeprecationStatus {
+    /// If this deprecation status indicates the item is deprecated.
+    pub fn is_deprecated(&self) -> bool {
+        match self {
+            &DeprecationStatus::Current => false,
+            &DeprecationStatus::Deprecated(_) => true,
+        }
+    }
+
+    /// An optional reason for the deprecation, or none if `Current`.
+    pub fn reason(&self) -> Option<&String> {
+        match self {
+            &DeprecationStatus::Current => None,
+            &DeprecationStatus::Deprecated(ref reason) => reason.as_ref(),
+        }
+    }
+}
+
 /// Scalar type metadata
 pub struct ScalarMeta<'a> {
     #[doc(hidden)]
@@ -134,7 +161,7 @@ pub struct Field<'a> {
     #[doc(hidden)]
     pub field_type: Type<'a>,
     #[doc(hidden)]
-    pub deprecation_reason: Option<String>,
+    pub deprecation_status: DeprecationStatus,
 }
 
 /// Metadata for an argument to a field
@@ -162,10 +189,8 @@ pub struct EnumValue {
     /// Note: this is not the description of the enum itself; it's the
     /// description of this enum _value_.
     pub description: Option<String>,
-    /// The optional deprecation reason
-    ///
-    /// If this is `Some`, the field will be considered `isDeprecated`.
-    pub deprecation_reason: Option<String>,
+    /// Whether the field is deprecated or not, with an optional reason.
+    pub deprecation_status: DeprecationStatus,
 }
 
 impl<'a> MetaType<'a> {
@@ -593,11 +618,11 @@ impl<'a> Field<'a> {
         self
     }
 
-    /// Set the deprecation reason
+    /// Set the field to be deprecated with an optional reason.
     ///
     /// This overwrites the deprecation reason if any was previously set.
-    pub fn deprecated(mut self, reason: &str) -> Field<'a> {
-        self.deprecation_reason = Some(reason.to_owned());
+    pub fn deprecated(mut self, reason: Option<&str>) -> Self {
+        self.deprecation_status = DeprecationStatus::Deprecated(reason.map(|s| s.to_owned()));
         self
     }
 }
@@ -636,7 +661,7 @@ impl EnumValue {
         EnumValue {
             name: name.to_owned(),
             description: None,
-            deprecation_reason: None,
+            deprecation_status: DeprecationStatus::Current,
         }
     }
 
@@ -648,11 +673,11 @@ impl EnumValue {
         self
     }
 
-    /// Set the deprecation reason for the enum value
+    /// Set the enum value to be deprecated with an optional reason.
     ///
     /// This overwrites the deprecation reason if any was previously set.
-    pub fn deprecated(mut self, reason: &str) -> EnumValue {
-        self.deprecation_reason = Some(reason.to_owned());
+    pub fn deprecated(mut self, reason: Option<&str>) -> Self {
+        self.deprecation_status = DeprecationStatus::Deprecated(reason.map(|s| s.to_owned()));
         self
     }
 }

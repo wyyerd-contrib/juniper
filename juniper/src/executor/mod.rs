@@ -15,8 +15,8 @@ use value::Value;
 use GraphQLError;
 
 use schema::meta::{
-    Argument, EnumMeta, EnumValue, Field, InputObjectMeta, InterfaceMeta, ListMeta, MetaType,
-    NullableMeta, ObjectMeta, PlaceholderMeta, ScalarMeta, UnionMeta,
+    Argument, DeprecationStatus, EnumMeta, EnumValue, Field, InputObjectMeta, InterfaceMeta,
+    ListMeta, MetaType, NullableMeta, ObjectMeta, PlaceholderMeta, ScalarMeta, UnionMeta,
 };
 use schema::model::{RootNode, SchemaType, TypeType};
 
@@ -682,7 +682,7 @@ impl<'r> Registry<'r> {
             description: None,
             arguments: None,
             field_type: self.get_type::<T>(info),
-            deprecation_reason: None,
+            deprecation_status: DeprecationStatus::Current,
         }
     }
 
@@ -700,7 +700,7 @@ impl<'r> Registry<'r> {
             description: None,
             arguments: None,
             field_type: self.get_type::<I>(info),
-            deprecation_reason: None,
+            deprecation_status: DeprecationStatus::Current,
         }
     }
 
