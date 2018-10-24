@@ -543,18 +543,35 @@ impl<'a> Field<'a> {
         self
     }
 
-    /// Add a line to the description of the field
+    /// Adds a (multi)line doc string to the description of the field.
+    /// Any leading or trailing newlines will be removed.
+    ///
+    /// If the docstring contains newlines, repeated leading tab and space characters
+    /// will be removed from the beginning of each line.
     ///
     /// If the description hasn't been set, the description is set to the provided line.
     /// Otherwise, a newline is appended before appending the line.
-    pub fn description_line(mut self, line: &str) -> Field<'a> {
+    pub fn push_docstring(mut self, multiline: &str) -> Field<'a> {
+        let trim_start = multiline.split('\n')
+            .skip(1)
+            .filter_map(|ln| ln.chars().position(|ch| ch != ' ' && ch != '\t'))
+            .min();
+        let doc = if let Some(trim) = trim_start {
+            let trimmed = multiline
+                .split('\n')
+                .map(|ln| if ln.len() >= trim { &ln[trim..] } else { "" })
+                .collect::<Vec<_>>();
+            Cow::from(trimmed.join("\n").trim_matches('\n').to_owned())
+        } else {
+            Cow::from(multiline.trim_matches('\n'))
+        };
         match &mut self.description {
             Some(desc) => {
                 desc.push('\n');
-                desc.push_str(line);
+                desc.push_str(&doc);
             }
             desc @ None => {
-                *desc = Some(line.to_owned());
+                *desc = Some(doc.to_string());
             }
         }
         self

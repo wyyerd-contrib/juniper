@@ -37,6 +37,14 @@ graphql_object!(Root: () |&self| {
     #[doc = "with `collapse_docs` behavior"] // https://doc.rust-lang.org/rustdoc/the-doc-attribute.html
     field attr_description_collapse() -> i32 { 0 }
 
+    #[doc = r#"
+        Get the i32 representation of 0.
+
+        - This comment is longer.
+        - These two lines are rendered as bullets by GraphiQL.
+    "#]
+    field attr_description_long() -> i32 { 0 }
+
     #[deprecated(note = "Deprecation reason")]
     field attr_deprecated() -> i32 { 0 }
 
@@ -70,6 +78,14 @@ graphql_interface!(Interface: () |&self| {
     #[doc = "Field description"]
     #[doc = "with `collapse_docs` behavior"] // https://doc.rust-lang.org/rustdoc/the-doc-attribute.html
     field attr_description_collapse() -> i32 { 0 }
+
+    #[doc = r#"\
+        Get the i32 representation of 0.
+
+        - This comment is longer.
+        - These two lines are rendered as bullets by GraphiQL.
+    "#]
+    field attr_description_long() -> i32 { 0 }
 
     #[deprecated(note = "Deprecation reason")]
     field attr_deprecated() -> i32 { 0 }
@@ -301,6 +317,50 @@ fn introspect_interface_field_attr_description() {
         assert_eq!(
             field.get_field_value("description"),
             Some(&Value::string("Field description"))
+        );
+        assert_eq!(
+            field.get_field_value("isDeprecated"),
+            Some(&Value::boolean(false))
+        );
+        assert_eq!(
+            field.get_field_value("deprecationReason"),
+            Some(&Value::null())
+        );
+    });
+}
+
+#[test]
+fn introspect_object_field_attr_description_long() {
+    run_field_info_query("Root", "attrDescriptionLong", |field| {
+        assert_eq!(
+            field.get_field_value("name"),
+            Some(&Value::string("attrDescriptionLong"))
+        );
+        assert_eq!(
+            field.get_field_value("description"),
+            Some(&Value::string("Get the i32 representation of 0.\n\n- This comment is longer.\n- These two lines are rendered as bullets by GraphiQL."))
+        );
+        assert_eq!(
+            field.get_field_value("isDeprecated"),
+            Some(&Value::boolean(false))
+        );
+        assert_eq!(
+            field.get_field_value("deprecationReason"),
+            Some(&Value::null())
+        );
+    });
+}
+
+#[test]
+fn introspect_interface_field_attr_description_long() {
+    run_field_info_query("Interface", "attrDescriptionLong", |field| {
+        assert_eq!(
+            field.get_field_value("name"),
+            Some(&Value::string("attrDescriptionLong"))
+        );
+        assert_eq!(
+            field.get_field_value("description"),
+            Some(&Value::string("Get the i32 representation of 0.\n\n- This comment is longer.\n- These two lines are rendered as bullets by GraphiQL."))
         );
         assert_eq!(
             field.get_field_value("isDeprecated"),

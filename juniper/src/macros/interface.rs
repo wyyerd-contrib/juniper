@@ -109,7 +109,7 @@ macro_rules! graphql_interface {
             $reg,
             $reg.field_convert::<$t, _, Self::Context>(
                 &$crate::to_camel_case(stringify!($name)), $info)
-                $(.description_line($desc))*
+                $(.push_docstring($desc))*
                 .deprecated($reason),
             $info,
             $args));
@@ -134,7 +134,7 @@ macro_rules! graphql_interface {
             $reg,
             $reg.field_convert::<$t, _, Self::Context>(
                 &$crate::to_camel_case(stringify!($name)), $info)
-                $(.description_line($desc))*,
+                $(.push_docstring($desc))*,
             $info,
             $args));
 
