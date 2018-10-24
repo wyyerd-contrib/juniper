@@ -1,6 +1,44 @@
 #[doc(hidden)]
 #[macro_export]
 macro_rules! __graphql__build_field_matches {
+    // #[doc = <description>]
+    // #[deprecated(note = <reason>)]
+    // field <name>(...) -> <type> { ... }
+    (
+        $resolveargs:tt,
+        ( $( $acc:tt )* ),
+        $( #[doc = $desc:tt] )*
+        #[deprecated(note = $reason:tt)]
+        field
+            $name:ident
+            $args:tt -> $t:ty
+            $body:block
+            $( $rest:tt )*
+    ) => {
+        __graphql__build_field_matches!(
+            $resolveargs,
+            (($name; $args; $t; $body) $( $acc )*),
+            $( $rest )*);
+    };
+
+    // #[doc = <description>]
+    // field <name>(...) -> <type> { ... }
+    (
+        $resolveargs:tt,
+        ( $( $acc:tt )* ),
+        $( #[doc = $desc:tt] )*
+        field
+            $name:ident
+            $args:tt -> $t:ty
+            $body:block
+            $( $rest:tt )*
+    ) => {
+        __graphql__build_field_matches!(
+            $resolveargs,
+            (($name; $args; $t; $body) $( $acc )*),
+            $( $rest )*);
+    };
+
     // field deprecated <reason> <name>(...) -> <type> as <description> { ... }
     (
         $resolveargs:tt,

@@ -20,7 +20,7 @@ impl ObjAttrs {
         res.description = get_doc_comment(&input.attrs);
 
         // Check attributes for name and description.
-        if let Some(items) = get_graphl_attr(&input.attrs) {
+        if let Some(items) = get_graphql_attr(&input.attrs) {
             for item in items {
                 if let Some(val) = keyed_item_value(&item, "name", true) {
                     if is_valid_name(&*val) {
@@ -72,7 +72,7 @@ impl ObjFieldAttrs {
         res.description = get_doc_comment(&variant.attrs);
 
         // Check attributes for name and description.
-        if let Some(items) = get_graphl_attr(&variant.attrs) {
+        if let Some(items) = get_graphql_attr(&variant.attrs) {
             for item in items {
                 if let Some(val) = keyed_item_value(&item, "name", true) {
                     if is_valid_name(&*val) {
