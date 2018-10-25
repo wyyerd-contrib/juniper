@@ -359,124 +359,120 @@ impl<'a> Lexer<'a> {
         })
     }
 
+
     fn scan_number(&mut self) -> LexerResult<'a> {
-        let start_pos = self.position.clone();
-        let int_part = self.scan_integer_part()?;
-        let mut frac_part = None;
-        let mut exp_part = None;
-
-        if let Some((_, '.')) = self.peek_char() {
-            self.next_char();
-
-            frac_part = Some(self.scan_digits()?);
-        }
-
-        if let Some((_, ch)) = self.peek_char() {
-            if ch == 'e' || ch == 'E' {
-                self.next_char();
-
-                let mut is_negative = false;
-
-                if let Some((_, ch)) = self.peek_char() {
-                    if ch == '-' {
-                        self.next_char();
-                        is_negative = true;
-                    } else if ch == '+' {
-                        self.next_char();
-                    }
-                }
-                exp_part = Some(if is_negative { -1 } else { 1 } * self.scan_digits()?);
-            }
-        }
-
-        let mantissa = frac_part
-            .map(|f| f64::from(f))
-            .map(|frac| {
-                if frac > 0f64 {
-                    frac / 10f64.powf(frac.log10().floor() + 1f64)
-                } else {
-                    0f64
-                }
-            })
-            .map(|m| if int_part < 0 { -m } else { m });
-
-        let exp = exp_part.map(|e| f64::from(e)).map(|e| 10f64.powf(e));
-
-        Ok(Spanning::start_end(
-            &start_pos,
+        let start_pos = self.position;
+        let (start_idx, _) = self.peek_char().ok_or(Spanning::zero_width(
             &self.position,
-            match (mantissa, exp) {
-                (None, None) => Token::Int(int_part),
-                (None, Some(exp)) => Token::Float((f64::from(int_part)) * exp),
-                (Some(mantissa), None) => Token::Float((f64::from(int_part)) + mantissa),
-                (Some(mantissa), Some(exp)) => {
-                    Token::Float(((f64::from(int_part)) + mantissa) * exp)
+            LexerError::UnexpectedEndOfFile,
+        ))?;
+
+        let mut last_idx = start_idx;
+        let mut last_char = '1';
+        let mut is_float = false;
+
+        let mut end_idx = loop {
+            if let Some((idx, ch)) = self.peek_char() {
+                if ch.is_digit(10) || (ch == '-' && last_idx == start_idx) {
+                    if ch == '0' && last_char == '0' && last_idx == start_idx {
+                        return Err(Spanning::zero_width(
+                            &self.position,
+                            LexerError::UnexpectedCharacter('0'),
+                        ));
+                    }
+                    self.next_char();
+                    last_char = ch;
+                } else if last_char == '-' {
+                    return Err(Spanning::zero_width(
+                        &self.position,
+                        LexerError::UnexpectedCharacter(ch),
+                    ));
+                } else {
+                    break idx;
                 }
-            },
-        ))
-    }
-
-    fn scan_integer_part(&mut self) -> Result<i32, Spanning<LexerError>> {
-        let is_negative = {
-            let (_, init_ch) = self.peek_char().ok_or(Spanning::zero_width(
-                &self.position,
-                LexerError::UnexpectedEndOfFile,
-            ))?;
-
-            if init_ch == '-' {
-                self.next_char();
-                true
+                last_idx = idx;
             } else {
-                false
+                break last_idx + 1;
             }
         };
 
-        let (_, ch) = self.peek_char().ok_or(Spanning::zero_width(
-            &self.position,
-            LexerError::UnexpectedEndOfFile,
-        ))?;
-
-        if ch == '0' {
+        if let Some((start_idx, '.')) = self.peek_char() {
+            is_float = true;
+            let mut last_idx = start_idx;
             self.next_char();
-
-            match self.peek_char() {
-                Some((_, '0')) => Err(Spanning::zero_width(
-                    &self.position,
-                    LexerError::UnexpectedCharacter(ch),
-                )),
-                _ => Ok(0),
-            }
-        } else {
-            Ok(self.scan_digits()? * if is_negative { -1 } else { 1 })
+            end_idx = loop {
+                if let Some((idx, ch)) = self.peek_char() {
+                    if ch.is_digit(10) {
+                        self.next_char();
+                    } else if last_idx == start_idx {
+                        return Err(Spanning::zero_width(
+                            &self.position,
+                            LexerError::UnexpectedCharacter(ch),
+                        ));
+                    } else {
+                        break idx;
+                    }
+                    last_idx = idx;
+                } else if last_idx == start_idx {
+                    return Err(Spanning::zero_width(
+                        &self.position,
+                        LexerError::UnexpectedEndOfFile,
+                    ));
+                } else {
+                    break last_idx + 1;
+                }
+            };
         }
-    }
-
-    fn scan_digits(&mut self) -> Result<i32, Spanning<LexerError>> {
-        let start_pos = self.position.clone();
-        let (start_idx, ch) = self.peek_char().ok_or(Spanning::zero_width(
-            &self.position,
-            LexerError::UnexpectedEndOfFile,
-        ))?;
-        let mut end_idx = start_idx;
-
-        if !ch.is_digit(10) {
-            return Err(Spanning::zero_width(
-                &self.position,
-                LexerError::UnexpectedCharacter(ch),
-            ));
-        }
-
-        while let Some((idx, ch)) = self.peek_char() {
-            if !ch.is_digit(10) {
-                break;
-            } else {
+        if let Some((start_idx, ch)) = self.peek_char() {
+            if ch == 'e' || ch == 'E' {
+                is_float = true;
                 self.next_char();
-                end_idx = idx;
+                let mut last_idx = start_idx;
+
+                end_idx = loop {
+                    if let Some((idx, ch)) = self.peek_char() {
+                        if ch.is_digit(10) || (last_idx == start_idx && (ch == '-' || ch == '+')) {
+                            self.next_char();
+                        } else if last_idx == start_idx {
+                            // 1e is not a valid floating point number
+                            return Err(Spanning::zero_width(
+                                &self.position,
+                                LexerError::UnexpectedCharacter(ch),
+                            ));
+                        } else {
+                            break idx;
+                        }
+                        last_idx = idx;
+                    } else if last_idx == start_idx {
+                        // 1e is not a valid floting point number
+                        return Err(Spanning::zero_width(
+                            &self.position,
+                            LexerError::UnexpectedEndOfFile,
+                        ));
+                    } else {
+                        break last_idx + 1;
+                    }
+                };
             }
         }
+        let number = &self.source[start_idx..end_idx];
+        let end_pos = &self.position;
 
-        i32::from_str_radix(&self.source[start_idx..end_idx + 1], 10)
-            .map_err(|_| Spanning::zero_width(&start_pos, LexerError::InvalidNumber))
+        let token = if is_float {
+            Token::Float(number.parse()
+             .map_err(|_| Spanning::start_end(&start_pos, end_pos, LexerError::InvalidNumber))
+             .map(|s: f64| s.into())?)
+        } else {
+            Token::Int(number.parse()
+             .map_err(|_| Spanning::start_end(&start_pos, end_pos, LexerError::InvalidNumber))
+             .map(|s: i32| s.into())?)
+        };
+
+        Ok(Spanning::start_end(
+            &start_pos,
+            end_pos,
+            token,
+        ))
     }
 }
 
