@@ -46,8 +46,8 @@ use std::error::Error;
 use std::io::{Cursor, Read};
 
 use rocket::data::{FromData, Outcome as FromDataOutcome, Transform, Transformed};
-use rocket::http::{ContentType, Status};
-use rocket::request::{FormItems, FromForm};
+use rocket::http::{ContentType, RawStr, Status};
+use rocket::request::{FormItems, FromForm, FromFormValue};
 use rocket::response::{content, Responder, Response};
 use rocket::Data;
 use rocket::Outcome::{Failure, Forward, Success};
@@ -199,10 +199,25 @@ impl GraphQLResponse {
     }
 }
 
+// For query params
+impl<'v> FromFormValue<'v> for GraphQLRequest {
+    type Error = String;
+
+    fn from_form_value(form_value: &'v RawStr) -> Result<Self, Self::Error> {
+        let mut form = FormItems::from(form_value);
+        FromForm::from_form(&mut form, true)
+    }
+
+    fn default() -> Option<Self> {
+        None
+    }
+}
+
+// For URLEncoded from form body
 impl<'f> FromForm<'f> for GraphQLRequest {
     type Error = String;
 
-    fn from_form(form_items: &mut FormItems<'f>, strict: bool) -> Result<Self, String> {
+    fn from_form(form_items: &mut FormItems<'f>, strict: bool) -> Result<Self, Self::Error> {
         let mut query = None;
         let mut operation_name = None;
         let mut variables = None;
@@ -266,6 +281,7 @@ impl<'f> FromForm<'f> for GraphQLRequest {
     }
 }
 
+// For JSON from body
 impl<'a> FromData<'a> for GraphQLRequest {
     type Error = String;
     type Owned = GraphQLRequest;
