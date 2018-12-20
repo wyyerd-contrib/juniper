@@ -102,6 +102,7 @@ extern crate fnv;
 
 extern crate indexmap;
 
+#[cfg(any(test, feature = "bigdecimal"))]
 extern crate bigdecimal;
 
 #[cfg(any(test, feature = "chrono"))]
