@@ -36,9 +36,6 @@ Check the LICENSE file for details.
 
 */
 
-#![feature(plugin)]
-#![plugin(rocket_codegen)]
-
 extern crate juniper;
 extern crate rocket;
 extern crate serde_json;
@@ -48,7 +45,7 @@ extern crate serde_derive;
 use std::error::Error;
 use std::io::{Cursor, Read};
 
-use rocket::data::{FromData, Outcome as FromDataOutcome};
+use rocket::data::{FromData, Outcome as FromDataOutcome, Transform, Transformed};
 use rocket::http::{ContentType, Status};
 use rocket::request::{FormItems, FromForm};
 use rocket::response::{content, Responder, Response};
@@ -157,9 +154,6 @@ impl GraphQLResponse {
     /// # Examples
     ///
     /// ```
-    /// # #![feature(plugin)]
-    /// # #![plugin(rocket_codegen)]
-    /// #
     /// # extern crate juniper;
     /// # extern crate juniper_rocket;
     /// # extern crate rocket;
@@ -213,7 +207,9 @@ impl<'f> FromForm<'f> for GraphQLRequest {
         let mut operation_name = None;
         let mut variables = None;
 
-        for (key, value) in form_items {
+        for item in form_items {
+            let (key, value) = (item.key, item.value);
+
             // Note: we explicitly decode in the match arms to save work rather
             // than decoding every form item blindly.
             match key.as_str() {
@@ -243,7 +239,7 @@ impl<'f> FromForm<'f> for GraphQLRequest {
                     if variables.is_some() {
                         return Err("Variables parameter must not occur more than once".to_owned());
                     } else {
-                        let decoded;
+                        let decoded: String;
                         match value.url_decode() {
                             Ok(v) => decoded = v,
                             Err(e) => return Err(e.description().to_string()),
@@ -270,23 +266,37 @@ impl<'f> FromForm<'f> for GraphQLRequest {
     }
 }
 
-impl FromData for GraphQLRequest {
+impl<'a> FromData<'a> for GraphQLRequest {
     type Error = String;
+    type Owned = GraphQLRequest;
+    type Borrowed = GraphQLRequest;
 
-    fn from_data(request: &Request, data: Data) -> FromDataOutcome<Self, Self::Error> {
+     fn transform(
+        request: &Request, 
+        data: Data
+    ) -> Transform<FromDataOutcome<Self::Owned, Self::Error>> {
         if !request.content_type().map_or(false, |ct| ct.is_json()) {
-            return Forward(data);
+            return Transform::Owned(Forward(data));
         }
 
         let mut body = String::new();
         if let Err(e) = data.open().read_to_string(&mut body) {
-            return Failure((Status::InternalServerError, format!("{:?}", e)));
+            return Transform::Owned(Failure((Status::InternalServerError, format!("{:?}", e))));
         }
 
-        match serde_json::from_str(&body) {
+        let outcome = match serde_json::from_str(&body) {
             Ok(value) => Success(GraphQLRequest(value)),
-            Err(failure) => return Failure((Status::BadRequest, format!("{}", failure))),
-        }
+            Err(failure) => Failure((Status::BadRequest, format!("{}", failure))),
+        };
+
+        Transform::Owned(outcome)
+    }
+
+    fn from_data(
+        _request: &Request, 
+        outcome: Transformed<'a, Self>
+    ) -> FromDataOutcome<Self, Self::Error> {
+        Success(outcome.owned()?)
     }
 }
 
